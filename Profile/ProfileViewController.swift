@@ -8,6 +8,7 @@
 
 import UIKit
 import UserNotifications
+import MobileCoreServices
 
 protocol ProfileViewDelegate: class {
     func onArrowPressed()
@@ -42,6 +43,10 @@ class ProfileViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        table.dragInteractionEnabled = true
+        table.dragDelegate = self
+        table.dropDelegate = self
         
         table.toAutoLayout()
         
@@ -176,6 +181,93 @@ class ProfileViewController: UIViewController {
         button.alpha = 0
         return button
     }()
+    
+    func dragItems(for indexPath: IndexPath) -> [UIDragItem] {
+        let post = Storage.posts[indexPath.row]
+        let firstItemProvider = NSItemProvider(object: post.description as NSString)
+        
+        let img = post.image
+        let secondItemProvider = NSItemProvider()
+
+        secondItemProvider.registerDataRepresentation(forTypeIdentifier: kUTTypePNG as String, visibility: .all) { completion in
+            completion(img.pngData(), nil)
+            return nil
+        }
+
+        return [
+            UIDragItem(itemProvider: firstItemProvider),  UIDragItem(itemProvider: secondItemProvider)
+        ]
+    }
+    
+    func canHandle(_ session: UIDropSession) -> Bool {
+        return session.canLoadObjects(ofClass: NSString.self) && session.canLoadObjects(ofClass: UIImage.self)
+    }
+    
+    func addItem(_ item: Post, index: Int) {
+        Storage.posts.insert(item, at: index)
+    }
+}
+
+@available(iOS 13.0, *)
+extension ProfileViewController: UITableViewDragDelegate, UITableViewDropDelegate {
+
+    func tableView(_ tableView: UITableView, itemsForBeginning session: UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
+        dragItems(for: indexPath)
+    }
+    
+    func tableView(_ tableView: UITableView, performDropWith coordinator: UITableViewDropCoordinator) {
+        let destinationIndexPath: IndexPath
+            
+            if let indexPath = coordinator.destinationIndexPath {
+                destinationIndexPath = indexPath
+            } else {
+                let section = tableView.numberOfSections - 1
+                let row = tableView.numberOfRows(inSection: section)
+                destinationIndexPath = IndexPath(row: row, section: section)
+            }
+            
+            coordinator.session.loadObjects(ofClass: NSString.self) { items in
+                let fileManager = FileManager.default
+                        
+                var img: UIImage?
+                var str: String?
+
+                let stringItems = items as! [String]
+                for item in stringItems {
+                    if let url = URL(string: item) {
+                        if fileManager.fileExists(atPath: url.path) {
+                            if let image = UIImage(contentsOfFile: url.path) {
+                                img = image
+                            }
+                            else {
+                                print("Error load image")
+                            }
+                        }
+                    }
+                     else {
+                        str = item
+                    }
+                }
+                
+                let indexPath = IndexPath(row: destinationIndexPath.row, section: destinationIndexPath.section)
+                
+                guard let imageAny = img, let stringAny = str else {
+                    return
+                }
+                
+                self.addItem(Post(author: "Drag&Drop", description: stringAny, image: imageAny, likes: 0, views: 0), index: indexPath.row)
+                
+                tableView.insertRows(at: [indexPath], with: .automatic)
+            }
+    }
+    
+    func tableView(_ tableView: UITableView, canHandle session: UIDropSession) -> Bool {
+        return canHandle(session)
+    }
+    
+    func tableView(_ tableView: UITableView, dropSessionDidUpdate session: UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UITableViewDropProposal {
+        return UITableViewDropProposal(operation: .copy, intent: .insertAtDestinationIndexPath)
+    }
 }
 
 

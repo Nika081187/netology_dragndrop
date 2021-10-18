@@ -184,18 +184,18 @@ class ProfileViewController: UIViewController {
     
     func dragItems(for indexPath: IndexPath) -> [UIDragItem] {
         let post = Storage.posts[indexPath.row]
-        let itemProvider = NSItemProvider(object: post.description as NSString)
+        let firstItemProvider = NSItemProvider(object: post.description as NSString)
         
         let img = post.image
-        let itemProvider2 = NSItemProvider()
+        let secondItemProvider = NSItemProvider()
 
-        itemProvider2.registerDataRepresentation(forTypeIdentifier: kUTTypePNG as String, visibility: .all) { completion in
+        secondItemProvider.registerDataRepresentation(forTypeIdentifier: kUTTypePNG as String, visibility: .all) { completion in
             completion(img.pngData(), nil)
             return nil
         }
 
         return [
-            UIDragItem(itemProvider: itemProvider),  UIDragItem(itemProvider: itemProvider2)
+            UIDragItem(itemProvider: firstItemProvider),  UIDragItem(itemProvider: secondItemProvider)
         ]
     }
     
@@ -266,9 +266,7 @@ extension ProfileViewController: UITableViewDragDelegate, UITableViewDropDelegat
     }
     
     func tableView(_ tableView: UITableView, dropSessionDidUpdate session: UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UITableViewDropProposal {
-        var dropProposal = UITableViewDropProposal(operation: .cancel)
-            dropProposal = UITableViewDropProposal(operation: .copy, intent: .insertAtDestinationIndexPath)
-        return dropProposal
+        return UITableViewDropProposal(operation: .copy, intent: .insertAtDestinationIndexPath)
     }
 }
 
